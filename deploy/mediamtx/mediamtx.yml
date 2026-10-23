@@ -1,0 +1,19 @@
+authMethod: http
+authHTTPAddress: http://127.0.0.1:8080/api/v1/media/auth?key=REPLACE_WITH_SERVICE_KEY
+authHTTPExclude:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+rtsp: yes
+rtspAddress: 127.0.0.1:8554
+rtmp: no
+hls: no
+srt: no
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+
+paths:
+  all_others:

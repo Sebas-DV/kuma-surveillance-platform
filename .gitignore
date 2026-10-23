@@ -1,0 +1,13 @@
+build/
+cmake-build-*/
+out/
+vcpkg_installed/
+.vs/
+.idea/
+.vscode/
+.env
+secrets/
+*.log
+*.user
+third_party/dahua/
+dvr_backup/

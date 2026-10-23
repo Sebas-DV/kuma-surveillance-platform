@@ -1,0 +1,16 @@
+﻿{
+  "name": "surveillance-platform",
+  "version-string": "0.1.0",
+  "description": "Surveillance Platform",
+  "dependencies": [
+    {
+      "name": "drogon",
+      "features": [
+        "orm",
+        "postgres"
+      ]
+    },
+    "gtest",
+    "libsodium"
+  ]
+}
