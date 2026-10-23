@@ -34,6 +34,16 @@ DH_RealPlayType realPlayType(const StreamProfile profile) {
     return DH_RType_Realplay_0;
 }
 
+int subStreamIndex(const StreamProfile profile) {
+    switch (profile) {
+        case StreamProfile::Main: return 0;
+        case StreamProfile::Sub1: return 1;
+        case StreamProfile::Sub2: return 2;
+        case StreamProfile::Sub3: return 3;
+    }
+    return 0;
+}
+
 class SdkLiveStream final : public ILiveStream {
 public:
     explicit SdkLiveStream(PacketHandler handler)
@@ -48,6 +58,9 @@ public:
 
     [[nodiscard]] domain::Result<void> start(const LLONG loginHandle, const LiveStreamRequest& request) {
         const std::scoped_lock lock(mutex_);
+        loginHandle_ = loginHandle;
+        channel_ = request.channel;
+        subStream_ = subStreamIndex(request.profile);
         realHandle_ = CLIENT_RealPlayEx(loginHandle, request.channel, nullptr, realPlayType(request.profile));
         if (realHandle_ == 0) {
             return domain::Result<void>::failure(detail::sdkError("CLIENT_RealPlayEx"));
@@ -68,6 +81,17 @@ public:
             CLIENT_StopRealPlayEx(realHandle_);
             realHandle_ = 0;
         }
+    }
+
+    [[nodiscard]] domain::Result<void> requestKeyFrame() override {
+        const std::scoped_lock lock(mutex_);
+        if (realHandle_ == 0) {
+            return domain::Result<void>::failure(Error{ErrorKind::InvalidState, "stream is not running", 0, false});
+        }
+        if (CLIENT_MakeKeyFrame(loginHandle_, channel_, subStream_) == FALSE) {
+            return domain::Result<void>::failure(detail::sdkError("CLIENT_MakeKeyFrame"));
+        }
+        return domain::Result<void>::success();
     }
 
     [[nodiscard]] std::uint64_t packetCount() const noexcept override { return packets_.load(); }
@@ -93,6 +117,9 @@ private:
     PacketHandler handler_;
     std::atomic<std::uint64_t> packets_{0};
     LLONG realHandle_{0};
+    LLONG loginHandle_{0};
+    int channel_{0};
+    int subStream_{0};
 };
 
 struct TalkFormat {

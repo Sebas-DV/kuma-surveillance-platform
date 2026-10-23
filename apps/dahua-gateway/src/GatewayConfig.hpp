@@ -5,6 +5,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "dahua/Types.hpp"
 #include "domain/Result.hpp"
@@ -20,6 +21,8 @@ struct GatewayConfig {
     int probeSeconds{10};
     std::optional<int> exitAfterSeconds;
     std::optional<std::string> migrationsDirectory;
+    std::optional<std::string> mediaServerUrl;
+    std::vector<int> publishChannels;
     bool showHelp{false};
 };
 

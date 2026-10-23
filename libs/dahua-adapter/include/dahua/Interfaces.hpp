@@ -19,6 +19,7 @@ class ILiveStream {
 public:
     virtual ~ILiveStream() = default;
     virtual void stop() = 0;
+    [[nodiscard]] virtual domain::Result<void> requestKeyFrame() = 0;
     [[nodiscard]] virtual std::uint64_t packetCount() const noexcept = 0;
 };
 

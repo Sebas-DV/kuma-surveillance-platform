@@ -1,6 +1,7 @@
 #include "GatewayConfig.hpp"
 
 #include <charconv>
+#include <algorithm>
 #include <limits>
 
 #include "domain/Environment.hpp"
@@ -28,6 +29,21 @@ std::optional<telemetry::Level> parseLevel(const std::string_view text) {
     if (text == "warn") return telemetry::Level::Warn;
     if (text == "error") return telemetry::Level::Error;
     return std::nullopt;
+}
+
+std::optional<std::vector<int>> parseChannelList(const std::string_view text) {
+    std::vector<int> channels;
+    std::size_t start = 0;
+    while (start <= text.size()) {
+        const std::size_t end = std::min(text.find(',', start), text.size());
+        const auto channel = parseInteger(text.substr(start, end - start), 0, 4095);
+        if (!channel) {
+            return std::nullopt;
+        }
+        channels.push_back(*channel);
+        start = end + 1;
+    }
+    return channels;
 }
 
 Output invalid(std::string message) {
@@ -87,6 +103,17 @@ domain::Result<GatewayConfig> parseGatewayArguments(const std::span<const std::s
                 return invalid("--exit-after must be between 1 and 86400");
             }
             config.exitAfterSeconds = *seconds;
+        } else if (argument == "--media-url") {
+            if (!value.starts_with("http://") && !value.starts_with("https://")) {
+                return invalid("--media-url must be an http or https URL");
+            }
+            config.mediaServerUrl = std::string(value);
+        } else if (argument == "--publish-channels") {
+            auto channels = parseChannelList(value);
+            if (!channels) {
+                return invalid("--publish-channels must be a comma separated list of channel indexes");
+            }
+            config.publishChannels = std::move(*channels);
         } else if (argument == "--migrations-dir") {
             if (value.empty()) {
                 return invalid("--migrations-dir requires a directory");
@@ -112,10 +139,12 @@ std::optional<dahua::Credentials> credentialsFromEnvironment() {
 std::string_view gatewayUsage() noexcept {
     return "dahua-gateway [--bind ADDRESS] [--port PORT] [--log-level debug|info|warn|error]\n"
            "              [--probe-channel INDEX] [--probe-seconds SECONDS] [--exit-after SECONDS]\n"
-           "              [--migrations-dir DIRECTORY]\n"
+           "              [--migrations-dir DIRECTORY] [--media-url URL] [--publish-channels 0,1,2]\n"
            "\n"
            "With SURVEILLANCE_DATABASE_URL and SURVEILLANCE_SECRET_KEY set, devices and their credentials are read from PostgreSQL.\n"
            "--migrations-dir applies the SQL migrations in that directory before starting.\n"
+           "--media-url publishes every online channel to that WHIP media server, for example http://127.0.0.1:8889.\n"
+           "--publish-channels limits which channels are published.\n"
            "Without a database, credentials are read from SURVEILLANCE_DAHUA_USER and SURVEILLANCE_DAHUA_PASSWORD.\n"
            "--probe-channel opens that channel (0-based) on every device that comes online and reports what arrives.\n";
 }

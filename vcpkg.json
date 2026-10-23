@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "surveillance-platform",
   "version-string": "0.1.0",
   "description": "Surveillance Platform",
@@ -11,6 +11,12 @@
       ]
     },
     "gtest",
+    {
+      "name": "libdatachannel",
+      "features": [
+        "srtp"
+      ]
+    },
     "libsodium"
   ]
 }

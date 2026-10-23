@@ -17,6 +17,7 @@
 #include "GatewayConfig.hpp"
 #include "dahua/DeviceSessionManager.hpp"
 #include "dahua/NetSdkRuntime.hpp"
+#include "StreamPublisher.hpp"
 #include "dahua/RegistrationServer.hpp"
 #include "dahua/SdkSessionFactory.hpp"
 #include "domain/Environment.hpp"
@@ -365,10 +366,33 @@ int runGateway(const int argc, char** argv) {
     if (database.has_value()) {
         recorder = std::make_unique<DeviceRecorder>(database->devices);
     }
-    if (probe || recorder) {
-        manager->setObserver([&probe, &recorder](const dahua::DeviceSnapshot& snapshot) {
+    std::unique_ptr<gateway::StreamPublisher> publisher;
+    if (config.mediaServerUrl.has_value()) {
+        gateway::StreamPublisherConfig publishing;
+        publishing.mediaServerUrl = *config.mediaServerUrl;
+        publishing.channels = config.publishChannels;
+        if (database.has_value()) {
+            publishing.enabledChannels = [devices = database->devices](const std::string& registrationId) {
+                std::vector<int> enabled;
+                if (const auto device = devices->getByRegistrationId(registrationId)) {
+                    for (const auto& channel : device.value().channels) {
+                        if (channel.enabled) {
+                            enabled.push_back(channel.index);
+                        }
+                    }
+                }
+                return enabled;
+            };
+        }
+        publisher = std::make_unique<gateway::StreamPublisher>(manager, std::move(publishing));
+    }
+    if (probe || recorder || publisher) {
+        manager->setObserver([&probe, &recorder, &publisher](const dahua::DeviceSnapshot& snapshot) {
             if (recorder) {
                 recorder->onSnapshot(snapshot);
+            }
+            if (publisher) {
+                publisher->onSnapshot(snapshot);
             }
             if (probe && snapshot.state == dahua::SessionState::Online) {
                 probe->onDeviceOnline(snapshot.id);
@@ -412,6 +436,9 @@ int runGateway(const int argc, char** argv) {
     logger.info("gateway.stopping");
     watcher.reset();
     server.stop();
+    if (publisher) {
+        publisher->stopAll();
+    }
     if (probe) {
         probe->join();
     }
